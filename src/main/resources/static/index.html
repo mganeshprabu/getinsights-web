@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>GetInsights</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<h1>GetInsights – Automotive News</h1>
+
+<!-- LOGIN SECTION -->
+<div id="loginSection">
+    <h3>Admin Login</h3>
+    <input id="username" placeholder="Username">
+    <input id="password" type="password" placeholder="Password">
+    <button onclick="login()">Login</button>
+</div>
+
+<hr>
+
+<!-- ADMIN PANEL -->
+<div id="adminPanel" style="display:none;">
+    <h3>Admin Panel</h3>
+    <button onclick="logout()">Logout</button>
+
+    <h3>Add / Update News</h3>
+    <input id="title" placeholder="News Title">
+    <textarea id="content" placeholder="News Content"></textarea>
+    <button id="saveBtn" onclick="saveHandler()">Add News</button>
+</div>
+
+<hr>
+
+<h2>Latest News</h2>
+<div id="news"></div>
+
+<script>
+
+let isAdmin = false;
+let editingId = null;
+
+function loadNews() {
+    fetch("/news/getAll")
+    .then(res => res.json())
+    .then(data => {
+        let container = document.getElementById("news");
+        container.innerHTML = "";
+
+        data.forEach(n => {
+            let div = document.createElement("div");
+            div.className = "card";
+
+            let adminButtons = "";
+            if(isAdmin){
+                adminButtons = `
+                    <button onclick="editNews(${n.id}, \`${n.title}\`, \`${n.content}\`)">Edit</button>
+                    <button onclick="deleteNews(${n.id})">Delete</button>
+                `;
+            }
+
+            div.innerHTML = `
+                <h3>${n.title}</h3>
+                <p class="news-content">${n.content}</p>
+                <small>${n.timestamp}</small><br>
+                ${adminButtons}
+            `;
+            container.appendChild(div);
+        });
+    });
+}
+
+function login() {
+    let u = document.getElementById("username").value;
+    let p = document.getElementById("password").value;
+
+    fetch(`/admin/login?username=${u}&password=${p}`, { method: "POST" })
+    .then(res => res.text())
+    .then(msg => {
+        alert(msg);
+        if(msg.includes("successful")){
+            isAdmin = true;
+            document.getElementById("adminPanel").style.display = "block";
+            document.getElementById("loginSection").style.display = "none";
+            loadNews();
+        }
+    });
+}
+
+function logout() {
+    isAdmin = false;
+    editingId = null;
+
+    document.getElementById("adminPanel").style.display = "none";
+    document.getElementById("loginSection").style.display = "block";
+
+    document.getElementById("username").value = "";
+    document.getElementById("password").value = "";
+
+    clearForm();
+    loadNews();
+    alert("Logged out successfully");
+}
+
+function addNews() {
+    let t = document.getElementById("title").value;
+    let c = document.getElementById("content").value;
+
+    fetch("/news/add", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({title:t, content:c})
+    })
+    .then(() => {
+        clearForm();
+        loadNews();
+    });
+}
+
+function editNews(id, title, content) {
+    editingId = id;
+    document.getElementById("title").value = title;
+    document.getElementById("content").value = content;
+    document.getElementById("saveBtn").innerText = "Update News";
+}
+
+function updateNews() {
+    let t = document.getElementById("title").value;
+    let c = document.getElementById("content").value;
+
+    fetch(`/news/update/${editingId}`, {
+        method: "PUT",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({title:t, content:c})
+    })
+    .then(() => {
+        clearForm();
+        loadNews();
+    });
+}
+
+function deleteNews(id) {
+    fetch(`/news/delete/${id}`, {method:"DELETE"})
+    .then(() => loadNews());
+}
+
+function clearForm(){
+    editingId = null;
+    document.getElementById("title").value = "";
+    document.getElementById("content").value = "";
+    document.getElementById("saveBtn").innerText = "Add News";
+}
+
+function saveHandler(){
+    if(editingId == null) addNews();
+    else updateNews();
+}
+
+loadNews();
+
+</script>
+
+</body>
+</html>
